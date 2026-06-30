@@ -1,56 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <style>body { margin: 0; overflow: hidden; background: #222; }</style>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        #hud { position: absolute; top: 20px; width: 100%; text-align: center; color: yellow; font-family: sans-serif; font-size: 30px; text-shadow: 2px 2px #000; }
+    </style>
 </head>
 <body>
+    <div id="hud">RACE TO SURVIVE</div>
     <script type="importmap">
-        { "imports": { 
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-        } }
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
     </script>
     <script type="module">
         import * as THREE from 'three';
 
-        // 1. Basic Scene
+        // 1. Scene setup with Fog (Fog se game real lagti hai)
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB);
+        scene.background = new THREE.Color(0x222222);
+        scene.fog = new THREE.Fog(0x222222, 1, 50);
+
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // 2. Light (Zaroori hai "Game Feel" ke liye)
-        const light = new THREE.DirectionalLight(0xffffff, 1);
-        light.position.set(5, 5, 5);
-        scene.add(light);
-        scene.add(new THREE.AmbientLight(0x404040));
+        // 2. Lighting (Atmosphere)
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const pointLight = new THREE.PointLight(0xffffff, 1);
+        pointLight.position.set(0, 5, 0);
+        scene.add(pointLight);
 
-        // 3. Car ki Shape (Box ki jagah ek "Low Poly" car design)
-        const car = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.BoxGeometry(1, 0.4, 2), new THREE.MeshStandardMaterial({color: 0xff0000}));
-        const top = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.3, 1), new THREE.MeshStandardMaterial({color: 0xffffff}));
-        top.position.y = 0.3;
-        car.add(body, top);
+        // 3. Road (Detailed)
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(10, 1000), new THREE.MeshBasicMaterial({ color: 0x333333 }));
+        road.rotation.x = -Math.PI/2;
+        scene.add(road);
+
+        // 4. Car (Basic Geometry)
+        const car = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 2), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+        car.position.y = 0.5;
         scene.add(car);
 
-        // 4. Track (Game Vibe ke liye grid texture ya path)
-        const track = new THREE.Mesh(new THREE.PlaneGeometry(20, 500), new THREE.MeshStandardMaterial({color: 0x333333}));
-        track.rotation.x = -Math.PI / 2;
-        scene.add(track);
-
-        camera.position.set(0, 5, 10);
-
         // 5. Game Loop
-        let speed = 0;
-        window.addEventListener('keydown', (e) => { if(e.key == 'w') speed = 0.5; });
-        window.addEventListener('keyup', (e) => { if(e.key == 'w') speed = 0; });
-
+        let pos = 0;
         function animate() {
             requestAnimationFrame(animate);
-            car.position.z -= speed; // Forward movement
-            camera.position.z -= speed;
-            track.position.z -= speed; // Track move hota lagega
+            
+            // Motion (Vibe)
+            pos += 0.2;
+            car.position.z = -pos;
+            camera.position.z = -pos + 5;
+            camera.position.y = 3;
+            camera.lookAt(0, 0, -pos - 5);
+            
             renderer.render(scene, camera);
         }
         animate();
