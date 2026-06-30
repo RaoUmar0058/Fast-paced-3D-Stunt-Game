@@ -1,67 +1,56 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Velocity 3D Stunt Racer</title>
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #fff; font-family: sans-serif; }
-    </style>
+    <style>body { margin: 0; overflow: hidden; background: #222; }</style>
 </head>
 <body>
-    <div id="ui"><h1>Velocity 3D: Use W, A, D</h1></div>
     <script type="importmap">
         { "imports": { 
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "cannon": "https://unpkg.com/cannon-es@0.20.0/dist/cannon-es.js"
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
         } }
     </script>
     <script type="module">
         import * as THREE from 'three';
-        import * as CANNON from 'cannon';
 
+        // 1. Basic Scene
         const scene = new THREE.Scene();
-        const world = new CANNON.World();
-        world.gravity.set(0, -9.8, 0);
-
+        scene.background = new THREE.Color(0x87CEEB);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Ground: Static
-        const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
-        groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-        world.addBody(groundBody);
+        // 2. Light (Zaroori hai "Game Feel" ke liye)
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 5, 5);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0x404040));
 
-        // Car: Dynamic
-        const carBody = new CANNON.Body({ mass: 5, shape: new CANNON.Box(new CANNON.Vec3(0.5, 0.25, 1)) });
-        carBody.position.set(0, 5, 0);
-        world.addBody(carBody);
+        // 3. Car ki Shape (Box ki jagah ek "Low Poly" car design)
+        const car = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1, 0.4, 2), new THREE.MeshStandardMaterial({color: 0xff0000}));
+        const top = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.3, 1), new THREE.MeshStandardMaterial({color: 0xffffff}));
+        top.position.y = 0.3;
+        car.add(body, top);
+        scene.add(car);
 
-        const carMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 2), new THREE.MeshNormalMaterial());
-        scene.add(carMesh);
+        // 4. Track (Game Vibe ke liye grid texture ya path)
+        const track = new THREE.Mesh(new THREE.PlaneGeometry(20, 500), new THREE.MeshStandardMaterial({color: 0x333333}));
+        track.rotation.x = -Math.PI / 2;
+        scene.add(track);
 
-        // Input
-        const keys = {};
-        window.addEventListener('keydown', (e) => keys[e.key] = true);
-        window.addEventListener('keyup', (e) => keys[e.key] = false);
+        camera.position.set(0, 5, 10);
+
+        // 5. Game Loop
+        let speed = 0;
+        window.addEventListener('keydown', (e) => { if(e.key == 'w') speed = 0.5; });
+        window.addEventListener('keyup', (e) => { if(e.key == 'w') speed = 0; });
 
         function animate() {
             requestAnimationFrame(animate);
-            world.step(1/60);
-
-            // Directly setting velocity for guaranteed movement
-            if (keys['w']) carBody.velocity.z = -5;
-            if (keys['a']) carBody.velocity.x = -5;
-            if (keys['d']) carBody.velocity.x = 5;
-
-            carMesh.position.copy(carBody.position);
-            carMesh.quaternion.copy(carBody.quaternion);
-            
-            camera.position.set(carBody.position.x, carBody.position.y + 5, carBody.position.z + 10);
-            camera.lookAt(carMesh.position);
-            
+            car.position.z -= speed; // Forward movement
+            camera.position.z -= speed;
+            track.position.z -= speed; // Track move hota lagega
             renderer.render(scene, camera);
         }
         animate();
