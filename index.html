@@ -5,53 +5,114 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Race To Survive</title>
 <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; touch-action: none; }
     #gameCanvas { display: block; width: 100%; height: 100%; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #fff; }
 
+    /* ---------- HUD ---------- */
     #hud {
         position: absolute; top: 0; left: 0; width: 100%;
         display: flex; justify-content: space-between; padding: 16px 20px;
-        font-family: 'Segoe UI', Arial, sans-serif; color: #fff; pointer-events: none;
-        z-index: 10;
+        pointer-events: none; z-index: 10;
     }
     .hud-box {
         background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.15);
         border-radius: 10px; padding: 8px 14px; backdrop-filter: blur(4px);
     }
-    .hud-label { font-size: 11px; opacity: 0.7; letter-spacing: 1px; }
-    .hud-value { font-size: 22px; font-weight: 700; }
+    .hud-label { font-size: 10px; opacity: 0.7; letter-spacing: 1px; }
+    .hud-value { font-size: 20px; font-weight: 700; }
     #speedVal { color: #ffcc00; }
     #scoreVal { color: #00e5ff; }
+    #coinHudVal { color: #ffd84d; }
+    .hud-row { display: flex; gap: 8px; }
 
-    #titleScreen, #gameOverScreen {
+    #missionBar {
+        position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+        background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 20px; padding: 6px 18px; font-size: 12px; z-index: 10;
+        display: flex; align-items: center; gap: 8px; pointer-events: none; white-space: nowrap;
+    }
+    #missionBar .mIcon { font-size: 14px; }
+    #missionProgressTrack { width: 90px; height: 6px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden; }
+    #missionProgressFill { height: 100%; width: 0%; background: #4caf50; transition: width 0.2s; }
+
+    /* ---------- Screens ---------- */
+    .screen {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: linear-gradient(180deg, rgba(10,10,15,0.95), rgba(5,5,10,0.98));
+        background: linear-gradient(180deg, rgba(10,10,15,0.96), rgba(5,5,10,0.98));
         display: flex; flex-direction: column; align-items: center; justify-content: center;
-        font-family: 'Segoe UI', Arial, sans-serif; color: #fff; z-index: 20; text-align: center;
-        padding: 20px;
+        z-index: 20; text-align: center; padding: 20px; overflow-y: auto;
     }
-    #titleScreen h1, #gameOverScreen h1 {
-        font-size: 38px; letter-spacing: 2px; margin-bottom: 6px;
-        color: #ffcc00; text-shadow: 0 0 18px rgba(255,204,0,0.5);
-    }
-    #titleScreen p, #gameOverScreen p { opacity: 0.7; margin-bottom: 24px; font-size: 14px; }
+    .screen h1 { font-size: 34px; letter-spacing: 2px; margin-bottom: 4px; color: #ffcc00; text-shadow: 0 0 18px rgba(255,204,0,0.5); }
+    .screen p.sub { opacity: 0.7; margin-bottom: 18px; font-size: 13px; }
     .btn {
         background: linear-gradient(135deg, #ff3b30, #d4001f);
-        color: #fff; border: none; padding: 16px 46px; border-radius: 30px;
-        font-size: 18px; font-weight: 700; letter-spacing: 1px;
-        box-shadow: 0 6px 20px rgba(255,59,48,0.4); cursor: pointer;
+        color: #fff; border: none; padding: 15px 42px; border-radius: 30px;
+        font-size: 17px; font-weight: 700; letter-spacing: 1px;
+        box-shadow: 0 6px 20px rgba(255,59,48,0.4); cursor: pointer; margin: 6px;
     }
+    .btn.secondary { background: linear-gradient(135deg, #2266dd, #133a8a); box-shadow: 0 6px 20px rgba(34,102,221,0.4); }
+    .btn.gold { background: linear-gradient(135deg, #ffcc00, #cc9900); color: #1a1a1a; box-shadow: 0 6px 20px rgba(255,204,0,0.4); }
     .btn:active { transform: scale(0.96); }
-    #finalScore { font-size: 50px; font-weight: 800; color: #00e5ff; margin: 10px 0; }
-    #bestScore { font-size: 14px; opacity: 0.6; margin-bottom: 26px; }
+    .btn:disabled { opacity: 0.35; pointer-events: none; }
     .hidden { display: none !important; }
+
+    #titleTopRow { display:flex; gap:14px; margin-bottom: 14px; }
+    .stat-pill { background: rgba(255,255,255,0.08); border-radius: 14px; padding: 6px 14px; font-size: 13px; display:flex; align-items:center; gap:6px;}
+
+    #finalScore { font-size: 46px; font-weight: 800; color: #00e5ff; margin: 6px 0; }
+    #bestScore { font-size: 13px; opacity: 0.6; margin-bottom: 6px; }
+    #coinEarnedRow { font-size: 15px; color: #ffd84d; margin-bottom: 18px; }
+
+    /* ---------- Garage ---------- */
+    #garageGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; max-width: 380px; margin-bottom: 20px; }
+    .skin-card { background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 12px 8px; cursor: pointer; }
+    .skin-card.selected { border-color: #ffcc00; box-shadow: 0 0 14px rgba(255,204,0,0.4); }
+    .skin-card.locked { opacity: 0.55; }
+    .skin-swatch { width: 50px; height: 28px; border-radius: 6px; margin: 0 auto 8px; }
+    .skin-name { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+    .skin-price { font-size: 11px; opacity: 0.7; }
+
+    /* ---------- Missions Screen ---------- */
+    #missionsList { display: flex; flex-direction: column; gap: 10px; max-width: 360px; width: 100%; margin-bottom: 16px; }
+    .mission-card { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 10px 14px; text-align: left; }
+    .mission-card.done { border-left: 4px solid #4caf50; }
+    .mission-card.active { border-left: 4px solid #ffcc00; }
+    .mtitle { font-size: 13px; font-weight: 600; margin-bottom: 6px; display:flex; justify-content:space-between; }
+    .mbar-track { height: 6px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; }
+    .mbar-fill { height: 100%; background: #4caf50; }
+
+    /* ---------- Daily Reward Popup ---------- */
+    #dailyPopup {
+        position: absolute; top:0; left:0; width:100%; height:100%; z-index: 30;
+        background: rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center;
+    }
+    #dailyCard {
+        background: linear-gradient(160deg, #1c1c24, #0e0e13); border: 1px solid rgba(255,204,0,0.3);
+        border-radius: 18px; padding: 26px 24px; max-width: 320px; text-align: center;
+        box-shadow: 0 0 40px rgba(255,204,0,0.15);
+    }
+    #dailyCard h2 { color: #ffcc00; font-size: 22px; margin-bottom: 4px; }
+    #dailyCard .streakNum { font-size: 40px; font-weight: 800; color: #fff; margin: 10px 0 2px; }
+    #dailyCard .streakLabel { font-size: 12px; opacity: 0.6; margin-bottom: 14px; }
+    #dailyReward { font-size: 16px; color: #ffd84d; margin-bottom: 18px; }
+    #streakDots { display:flex; justify-content:center; gap:6px; margin-bottom: 18px; }
+    .sdot { width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,0.12); display:flex; align-items:center; justify-content:center; font-size:11px; }
+    .sdot.filled { background: #ffcc00; color:#1a1a1a; font-weight:700; }
 
     #swipeHint {
         position: absolute; bottom: 40px; width: 100%; text-align: center;
-        color: rgba(255,255,255,0.5); font-family: sans-serif; font-size: 13px;
-        z-index: 10; pointer-events: none; letter-spacing: 1px;
+        color: rgba(255,255,255,0.5); font-size: 13px; z-index: 10; pointer-events: none; letter-spacing: 1px;
     }
+    #levelUpToast {
+        position:absolute; top: 40%; left:50%; transform:translate(-50%,-50%) scale(0.8);
+        background: rgba(0,0,0,0.6); border: 1px solid rgba(255,204,0,0.4); border-radius: 16px;
+        padding: 18px 30px; text-align:center; z-index: 15; opacity:0; transition: all 0.3s; pointer-events:none;
+    }
+    #levelUpToast.show { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    #levelUpToast .lu1 { font-size: 12px; opacity:0.7; letter-spacing:1px; }
+    #levelUpToast .lu2 { font-size: 26px; font-weight: 800; color: #ffcc00; }
 </style>
 </head>
 <body>
@@ -59,23 +120,67 @@
 <canvas id="gameCanvas"></canvas>
 
 <div id="hud" class="hidden">
-    <div class="hud-box"><div class="hud-label">SPEED</div><div class="hud-value"><span id="speedVal">0</span> km/h</div></div>
-    <div class="hud-box"><div class="hud-label">SCORE</div><div class="hud-value" id="scoreVal">0</div></div>
+    <div class="hud-row">
+        <div class="hud-box"><div class="hud-label">SPEED</div><div class="hud-value"><span id="speedVal">0</span></div></div>
+        <div class="hud-box"><div class="hud-label">SCORE</div><div class="hud-value" id="scoreVal">0</div></div>
+    </div>
+    <div class="hud-box"><div class="hud-label">COINS</div><div class="hud-value" id="coinHudVal">0</div></div>
 </div>
-
+<div id="missionBar" class="hidden"><span class="mIcon">🎯</span><span id="missionText">Mission</span><div id="missionProgressTrack"><div id="missionProgressFill"></div></div></div>
+<div id="levelUpToast"><div class="lu1">LEVEL UP</div><div class="lu2" id="levelUpText">Level 2</div></div>
 <div id="swipeHint" class="hidden">← swipe to change lane →</div>
 
-<div id="titleScreen">
+<!-- TITLE -->
+<div id="titleScreen" class="screen">
     <h1>RACE TO SURVIVE</h1>
-    <p>Dodge traffic. Survive the highway. Don't crash.</p>
+    <p class="sub">Dodge traffic. Collect coins. Survive the highway.</p>
+    <div id="titleTopRow">
+        <div class="stat-pill">🪙 <span id="titleCoins">0</span></div>
+        <div class="stat-pill">⭐ Lvl <span id="titleLevel">1</span></div>
+        <div class="stat-pill">🔥 <span id="titleStreak">0</span> day</div>
+    </div>
     <button class="btn" id="startBtn">START RACE</button>
+    <div>
+        <button class="btn secondary" id="garageBtn">🚗 GARAGE</button>
+        <button class="btn gold" id="missionsBtn">🎯 MISSIONS</button>
+    </div>
 </div>
 
-<div id="gameOverScreen" class="hidden">
+<!-- GAME OVER -->
+<div id="gameOverScreen" class="screen hidden">
     <h1>CRASHED!</h1>
     <div id="finalScore">0</div>
     <div id="bestScore">Best: 0</div>
+    <div id="coinEarnedRow">+0 🪙 collected</div>
     <button class="btn" id="retryBtn">RACE AGAIN</button>
+    <button class="btn secondary" id="homeBtn">HOME</button>
+</div>
+
+<!-- GARAGE -->
+<div id="garageScreen" class="screen hidden">
+    <h1 style="font-size:26px;">GARAGE</h1>
+    <p class="sub">🪙 <span id="garageCoins">0</span> available</p>
+    <div id="garageGrid"></div>
+    <button class="btn secondary" id="garageBackBtn">BACK</button>
+</div>
+
+<!-- MISSIONS -->
+<div id="missionsScreen" class="screen hidden">
+    <h1 style="font-size:26px;">MISSIONS</h1>
+    <p class="sub">Complete missions to earn bonus coins</p>
+    <div id="missionsList"></div>
+    <button class="btn secondary" id="missionsBackBtn">BACK</button>
+</div>
+
+<!-- DAILY REWARD -->
+<div id="dailyPopup" class="hidden">
+    <div id="dailyCard">
+        <h2>DAILY REWARD</h2>
+        <div class="streakLabel">Come back every day for bonus coins</div>
+        <div id="streakDots"></div>
+        <div id="dailyReward">+0 🪙</div>
+        <button class="btn gold" id="claimDailyBtn">CLAIM</button>
+    </div>
 </div>
 
 <script type="importmap">
@@ -84,241 +189,373 @@
 <script type="module">
 import * as THREE from 'three';
 
+/* ================= SAVE DATA ================= */
+const SAVE_KEY = 'rts_save_v2';
+function loadSave() {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    return {
+        coins: 0, best: 0, xp: 0, level: 1,
+        ownedSkins: ['red'], selectedSkin: 'red',
+        streak: 0, lastPlayDate: null,
+        missionProgress: {}, missionDay: null
+    };
+}
+function save() { localStorage.setItem(SAVE_KEY, JSON.stringify(saveData)); }
+let saveData = loadSave();
+
+/* ================= SKINS ================= */
+const SKINS = [
+    { id: 'red',    name: 'Crimson',  color: 0xe8231a, price: 0 },
+    { id: 'blue',   name: 'Azure',    color: 0x2266dd, price: 150 },
+    { id: 'yellow', name: 'Inferno',  color: 0xffcc00, price: 300 },
+    { id: 'green',  name: 'Toxic',    color: 0x22aa55, price: 300 },
+    { id: 'purple', name: 'Royal',    color: 0x8833cc, price: 500 },
+    { id: 'white',  name: 'Phantom',  color: 0xf5f5f5, price: 750 },
+];
+function getSkinColor(id) { return (SKINS.find(s=>s.id===id) || SKINS[0]).color; }
+
+/* ================= MISSIONS ================= */
+const MISSION_POOL = [
+    { id: 'coins10', text: 'Collect 15 coins in one run', type:'coinsInRun', target: 15, reward: 40 },
+    { id: 'score300', text: 'Score 300 points in one run', type:'scoreInRun', target: 300, reward: 50 },
+    { id: 'survive60', text: 'Survive 60 seconds', type:'surviveTime', target: 60, reward: 60 },
+    { id: 'noswitch', text: 'Travel 200m without crashing', type:'scoreInRun', target: 200, reward: 35 },
+    { id: 'coins30', text: 'Collect 30 coins in one run', type:'coinsInRun', target: 30, reward: 70 },
+];
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function ensureDailyMissions() {
+    const today = todayStr();
+    if (saveData.missionDay !== today) {
+        saveData.missionDay = today;
+        // pick 3 random missions for today
+        const shuffled = [...MISSION_POOL].sort(()=>Math.random()-0.5).slice(0,3);
+        saveData.missionProgress = {};
+        shuffled.forEach(m => { saveData.missionProgress[m.id] = { progress: 0, done: false }; });
+        save();
+    }
+}
+ensureDailyMissions();
+function getTodayMissions() {
+    return MISSION_POOL.filter(m => saveData.missionProgress[m.id] !== undefined)
+        .map(m => ({...m, ...saveData.missionProgress[m.id]}));
+}
+
+/* ================= XP / LEVEL ================= */
+function xpForLevel(lvl) { return 100 + (lvl-1) * 60; }
+function addXP(amount) {
+    saveData.xp += amount;
+    let leveled = false;
+    while (saveData.xp >= xpForLevel(saveData.level)) {
+        saveData.xp -= xpForLevel(saveData.level);
+        saveData.level++;
+        leveled = true;
+    }
+    if (leveled) showLevelUp(saveData.level);
+    save();
+}
+function showLevelUp(lvl) {
+    const toast = document.getElementById('levelUpToast');
+    document.getElementById('levelUpText').textContent = 'Level ' + lvl;
+    toast.classList.add('show');
+    setTimeout(()=> toast.classList.remove('show'), 2200);
+}
+
+/* ================= DAILY STREAK ================= */
+function checkDailyReward() {
+    const today = todayStr();
+    if (saveData.lastPlayDate === today) return; // already claimed today
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
+    if (saveData.lastPlayDate === yesterday) {
+        saveData.streak = (saveData.streak || 0) + 1;
+    } else {
+        saveData.streak = 1;
+    }
+    if (saveData.streak > 7) saveData.streak = 1;
+    const reward = 20 + (saveData.streak-1) * 15;
+    document.getElementById('dailyReward').textContent = '+' + reward + ' 🪙';
+    const dotsEl = document.getElementById('streakDots');
+    dotsEl.innerHTML = '';
+    for (let i=1; i<=7; i++) {
+        const d = document.createElement('div');
+        d.className = 'sdot' + (i <= saveData.streak ? ' filled' : '');
+        d.textContent = i;
+        dotsEl.appendChild(d);
+    }
+    document.getElementById('dailyPopup').classList.remove('hidden');
+    document.getElementById('claimDailyBtn').onclick = () => {
+        saveData.coins += reward;
+        saveData.lastPlayDate = today;
+        save();
+        document.getElementById('dailyPopup').classList.add('hidden');
+        refreshTitleStats();
+    };
+}
+
 /* ================= AUDIO ================= */
 let audioCtx = null;
-function initAudio() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-}
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
 let engineOsc = null, engineGain = null;
 function startEngineSound() {
     if (!audioCtx) return;
     engineOsc = audioCtx.createOscillator();
     engineGain = audioCtx.createGain();
-    engineOsc.type = 'sawtooth';
-    engineOsc.frequency.value = 60;
-    engineGain.gain.value = 0.025;
+    engineOsc.type = 'sawtooth'; engineOsc.frequency.value = 60; engineGain.gain.value = 0.025;
     engineOsc.connect(engineGain).connect(audioCtx.destination);
     engineOsc.start();
 }
-function stopEngineSound() {
-    if (engineOsc) { try { engineOsc.stop(); } catch(e){} engineOsc = null; }
-}
-function updateEnginePitch(speedRatio) {
-    if (engineOsc) engineOsc.frequency.value = 55 + speedRatio * 140;
-}
-function playBeep(freq, duration, type='sine', vol=0.15) {
+function stopEngineSound() { if (engineOsc) { try{engineOsc.stop();}catch(e){} engineOsc=null; } }
+function updateEnginePitch(r) { if (engineOsc) engineOsc.frequency.value = 55 + r*140; }
+function playBeep(freq, dur, type='sine', vol=0.15) {
     if (!audioCtx) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = type; osc.frequency.value = freq;
-    gain.gain.value = vol;
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.type = type; osc.frequency.value = freq; gain.gain.value = vol;
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
     osc.connect(gain).connect(audioCtx.destination);
-    osc.start(); osc.stop(audioCtx.currentTime + duration);
+    osc.start(); osc.stop(audioCtx.currentTime + dur);
 }
 function playCrash() {
     if (!audioCtx) return;
-    const bufferSize = audioCtx.sampleRate * 0.4;
-    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const bufSize = audioCtx.sampleRate*0.4;
+    const buffer = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
     const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random()*2-1) * (1 - i/bufferSize);
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = buffer;
-    const gain = audioCtx.createGain();
-    gain.gain.value = 0.5;
-    noise.connect(gain).connect(audioCtx.destination);
-    noise.start();
+    for (let i=0;i<bufSize;i++) data[i] = (Math.random()*2-1)*(1-i/bufSize);
+    const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+    const gain = audioCtx.createGain(); gain.gain.value = 0.5;
+    noise.connect(gain).connect(audioCtx.destination); noise.start();
 }
 function playSwipe() { playBeep(400, 0.08, 'triangle', 0.08); }
-function playScoreTick() { playBeep(880, 0.06, 'sine', 0.05); }
+function playCoin() { playBeep(1200, 0.07, 'sine', 0.09); setTimeout(()=>playBeep(1600,0.07,'sine',0.07), 50); }
+function playMissionDone() { playBeep(660,0.1,'square',0.1); setTimeout(()=>playBeep(990,0.15,'square',0.1),100); }
 
 /* ================= SCENE ================= */
 const canvas = document.getElementById('gameCanvas');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87a8c4);
 scene.fog = new THREE.Fog(0x87a8c4, 20, 110);
-
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
-
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-/* Lighting */
 const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 1.1);
-sun.position.set(20, 40, -10);
-sun.castShadow = true;
-sun.shadow.mapSize.set(1024, 1024);
-sun.shadow.camera.left = -30; sun.shadow.camera.right = 30;
-sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30;
+sun.position.set(20, 40, -10); sun.castShadow = true;
+sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.left=-30; sun.shadow.camera.right=30; sun.shadow.camera.top=30; sun.shadow.camera.bottom=-30;
 scene.add(sun);
 
-/* ================= ROAD ================= */
+/* ROAD */
 const LANES = [-3.2, 0, 3.2];
-const ROAD_WIDTH = 11;
-const ROAD_LENGTH = 4000;
-
-const roadMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3e, roughness: 0.9 });
-const road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH, ROAD_LENGTH), roadMat);
-road.rotation.x = -Math.PI/2;
-road.position.z = -ROAD_LENGTH/2 + 20;
-road.receiveShadow = true;
+const ROAD_WIDTH = 11, ROAD_LENGTH = 4000;
+const road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH, ROAD_LENGTH), new THREE.MeshStandardMaterial({color:0x3a3a3e, roughness:0.9}));
+road.rotation.x=-Math.PI/2; road.position.z=-ROAD_LENGTH/2+20; road.receiveShadow=true;
 scene.add(road);
-
-// Side grass/ground
-const groundMat = new THREE.MeshStandardMaterial({ color: 0x355c2e, roughness: 1 });
+const groundMat = new THREE.MeshStandardMaterial({color:0x355c2e, roughness:1});
 const groundL = new THREE.Mesh(new THREE.PlaneGeometry(40, ROAD_LENGTH), groundMat);
-groundL.rotation.x = -Math.PI/2;
-groundL.position.set(-ROAD_WIDTH/2 - 20, -0.01, -ROAD_LENGTH/2 + 20);
-groundL.receiveShadow = true;
+groundL.rotation.x=-Math.PI/2; groundL.position.set(-ROAD_WIDTH/2-20,-0.01,-ROAD_LENGTH/2+20); groundL.receiveShadow=true;
 scene.add(groundL);
-const groundR = groundL.clone();
-groundR.position.x = ROAD_WIDTH/2 + 20;
-scene.add(groundR);
+const groundR = groundL.clone(); groundR.position.x = ROAD_WIDTH/2+20; scene.add(groundR);
 
-// Lane dashed markings
-const dashMat = new THREE.MeshBasicMaterial({ color: 0xf2c200 });
+const dashMat = new THREE.MeshBasicMaterial({color:0xf2c200});
 const dashGroup = new THREE.Group();
-const dashCount = 220;
-for (let i = 0; i < dashCount; i++) {
-    [-1.6, 1.6].forEach(x => {
-        const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 1.4), dashMat);
-        dash.rotation.x = -Math.PI/2;
-        dash.position.set(x, 0.01, -i * 6);
+for (let i=0;i<220;i++) {
+    [-1.6,1.6].forEach(x=>{
+        const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.15,1.4), dashMat);
+        dash.rotation.x=-Math.PI/2; dash.position.set(x,0.01,-i*6);
         dashGroup.add(dash);
     });
 }
 scene.add(dashGroup);
-
-// Road edge lines
-[-ROAD_WIDTH/2 + 0.15, ROAD_WIDTH/2 - 0.15].forEach(x => {
-    const edge = new THREE.Mesh(new THREE.PlaneGeometry(0.18, ROAD_LENGTH), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-    edge.rotation.x = -Math.PI/2;
-    edge.position.set(x, 0.015, -ROAD_LENGTH/2 + 20);
+[-ROAD_WIDTH/2+0.15, ROAD_WIDTH/2-0.15].forEach(x=>{
+    const edge = new THREE.Mesh(new THREE.PlaneGeometry(0.18,ROAD_LENGTH), new THREE.MeshBasicMaterial({color:0xffffff}));
+    edge.rotation.x=-Math.PI/2; edge.position.set(x,0.015,-ROAD_LENGTH/2+20);
     scene.add(edge);
 });
-
-// Roadside poles/trees for speed sensation
 const poleGroup = new THREE.Group();
 function makeTree(z, side) {
     const g = new THREE.Group();
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 1.6, 6), new THREE.MeshStandardMaterial({ color: 0x5c4327 }));
-    trunk.position.y = 0.8;
-    const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2.4, 7), new THREE.MeshStandardMaterial({ color: 0x2d5d34 }));
-    leaves.position.y = 2.4;
-    g.add(trunk, leaves);
-    g.position.set(side * (ROAD_WIDTH/2 + 3 + Math.random()*4), 0, z);
-    g.castShadow = true;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.2,1.6,6), new THREE.MeshStandardMaterial({color:0x5c4327}));
+    trunk.position.y=0.8;
+    const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.1,2.4,7), new THREE.MeshStandardMaterial({color:0x2d5d34}));
+    leaves.position.y=2.4;
+    g.add(trunk,leaves);
+    g.position.set(side*(ROAD_WIDTH/2+3+Math.random()*4), 0, z);
+    g.castShadow=true;
     return g;
 }
-for (let i = 0; i < 140; i++) {
-    poleGroup.add(makeTree(-i * 9 - 5, 1));
-    poleGroup.add(makeTree(-i * 9 - 5 - 4, -1));
+for (let i=0;i<140;i++) {
+    poleGroup.add(makeTree(-i*9-5, 1));
+    poleGroup.add(makeTree(-i*9-5-4, -1));
 }
 scene.add(poleGroup);
 
-/* ================= PLAYER CAR ================= */
+/* CAR BUILDER */
 function buildCar(bodyColor, scale=1) {
     const g = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, metalness: 0.4, roughness: 0.35 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.55, 3.6), bodyMat);
-    body.position.y = 0.55;
-    body.castShadow = true;
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.5, 1.7), new THREE.MeshStandardMaterial({ color: 0x111318, metalness: 0.2, roughness: 0.3 }));
-    cabin.position.set(0, 0.95, -0.1);
-    cabin.castShadow = true;
-    const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.32, 14);
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x121212 });
-    const wheelPositions = [[-0.85, 0.34, 1.2],[0.85, 0.34, 1.2],[-0.85, 0.34, -1.2],[0.85, 0.34, -1.2]];
+    const bodyMat = new THREE.MeshStandardMaterial({color:bodyColor, metalness:0.4, roughness:0.35});
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.7,0.55,3.6), bodyMat);
+    body.position.y=0.55; body.castShadow=true;
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.3,0.5,1.7), new THREE.MeshStandardMaterial({color:0x111318, metalness:0.2, roughness:0.3}));
+    cabin.position.set(0,0.95,-0.1); cabin.castShadow=true;
+    const wheelGeo = new THREE.CylinderGeometry(0.34,0.34,0.32,14);
+    const wheelMat = new THREE.MeshStandardMaterial({color:0x121212});
+    const wheelPositions = [[-0.85,0.34,1.2],[0.85,0.34,1.2],[-0.85,0.34,-1.2],[0.85,0.34,-1.2]];
     const wheels = [];
-    wheelPositions.forEach(p => {
+    wheelPositions.forEach(p=>{
         const w = new THREE.Mesh(wheelGeo, wheelMat);
-        w.rotation.z = Math.PI/2;
-        w.position.set(...p);
-        w.castShadow = true;
-        g.add(w);
-        wheels.push(w);
+        w.rotation.z=Math.PI/2; w.position.set(...p); w.castShadow=true;
+        g.add(w); wheels.push(w);
     });
-    const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff7cc, emissive: 0xfff7cc, emissiveIntensity: 0.6 });
-    const headL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.18, 0.05), lightMat);
-    headL.position.set(-0.55, 0.6, 1.82);
-    const headR = headL.clone(); headR.position.x = 0.55;
-    const tailMat = new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 0.5 });
-    const tailL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.18, 0.05), tailMat);
-    tailL.position.set(-0.55, 0.6, -1.82);
-    const tailR = tailL.clone(); tailR.position.x = 0.55;
-    g.add(body, cabin, headL, headR, tailL, tailR);
+    const lightMat = new THREE.MeshStandardMaterial({color:0xfff7cc, emissive:0xfff7cc, emissiveIntensity:0.6});
+    const headL = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.18,0.05), lightMat);
+    headL.position.set(-0.55,0.6,1.82);
+    const headR = headL.clone(); headR.position.x=0.55;
+    const tailMat = new THREE.MeshStandardMaterial({color:0xff2222, emissive:0xff0000, emissiveIntensity:0.5});
+    const tailL = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.18,0.05), tailMat);
+    tailL.position.set(-0.55,0.6,-1.82);
+    const tailR = tailL.clone(); tailR.position.x=0.55;
+    g.add(body,cabin,headL,headR,tailL,tailR);
     g.scale.setScalar(scale);
     g.userData.wheels = wheels;
+    g.userData.bodyMesh = body;
     return g;
 }
 
-const playerCar = buildCar(0xe8231a);
-playerCar.position.set(0, 0, 0);
+const playerCar = buildCar(getSkinColor(saveData.selectedSkin));
+playerCar.position.set(0,0,0);
 scene.add(playerCar);
+function applySelectedSkin() {
+    playerCar.userData.bodyMesh.material.color.setHex(getSkinColor(saveData.selectedSkin));
+}
 
-/* ================= TRAFFIC ================= */
-const carColors = [0x2266dd, 0xffffff, 0xffcc00, 0x22aa55, 0x555560, 0xff8800, 0x9933cc];
+/* TRAFFIC */
+const carColors = [0x2266dd,0xffffff,0xffcc00,0x22aa55,0x555560,0xff8800,0x9933cc];
 let traffic = [];
 const TRAFFIC_POOL_SIZE = 14;
 function spawnTrafficPiece(zPos) {
     const lane = LANES[Math.floor(Math.random()*3)];
     const color = carColors[Math.floor(Math.random()*carColors.length)];
     const car = buildCar(color, 0.95);
-    car.position.set(lane, 0, zPos);
+    car.position.set(lane,0,zPos);
     car.userData.lane = lane;
-    car.userData.speed = 0.05 + Math.random()*0.05; // own forward drift (slower than player typically)
     scene.add(car);
     traffic.push(car);
 }
-for (let i = 0; i < TRAFFIC_POOL_SIZE; i++) {
-    spawnTrafficPiece(-30 - i * 18 - Math.random()*10);
+for (let i=0;i<TRAFFIC_POOL_SIZE;i++) spawnTrafficPiece(-30-i*18-Math.random()*10);
+
+/* COINS */
+const coinGeo = new THREE.CylinderGeometry(0.4,0.4,0.1,16);
+const coinMat = new THREE.MeshStandardMaterial({color:0xffd700, metalness:0.7, roughness:0.2, emissive:0x664400, emissiveIntensity:0.3});
+let coinPickups = [];
+const COIN_POOL_SIZE = 18;
+function spawnCoin(zPos) {
+    const lane = LANES[Math.floor(Math.random()*3)];
+    const coin = new THREE.Mesh(coinGeo, coinMat);
+    coin.rotation.x = Math.PI/2;
+    coin.position.set(lane, 0.9, zPos);
+    coin.userData.lane = lane;
+    coin.userData.active = true;
+    scene.add(coin);
+    coinPickups.push(coin);
 }
+for (let i=0;i<COIN_POOL_SIZE;i++) spawnCoin(-20-i*22-Math.random()*15);
 
 /* ================= GAME STATE ================= */
-let gameState = 'title'; // title, playing, gameover
+let gameState = 'title';
 let currentLaneIndex = 1;
 let targetX = LANES[1];
 let traveledDistance = 0;
 let speed = 0;
-const MAX_SPEED = 0.95;
-const MIN_SPEED = 0.32;
+const MAX_SPEED = 0.95, MIN_SPEED = 0.32;
 let score = 0;
-let best = parseInt(localStorage.getItem('rts_best') || '0', 10);
+let coinsThisRun = 0;
+let elapsedTime = 0;
 let lastTime = performance.now();
 let invincibleTimer = 0;
+let crashShake = 0;
 
 const speedValEl = document.getElementById('speedVal');
 const scoreValEl = document.getElementById('scoreVal');
+const coinHudVal = document.getElementById('coinHudVal');
 const hud = document.getElementById('hud');
 const swipeHint = document.getElementById('swipeHint');
 const titleScreen = document.getElementById('titleScreen');
 const gameOverScreen = document.getElementById('gameOverScreen');
+const garageScreen = document.getElementById('garageScreen');
+const missionsScreen = document.getElementById('missionsScreen');
 const finalScoreEl = document.getElementById('finalScore');
 const bestScoreEl = document.getElementById('bestScore');
+const coinEarnedRow = document.getElementById('coinEarnedRow');
+const missionBar = document.getElementById('missionBar');
+const missionText = document.getElementById('missionText');
+const missionProgressFill = document.getElementById('missionProgressFill');
+
+function refreshTitleStats() {
+    document.getElementById('titleCoins').textContent = saveData.coins;
+    document.getElementById('titleLevel').textContent = saveData.level;
+    document.getElementById('titleStreak').textContent = saveData.streak || 0;
+}
+
+/* active mission for this run = first incomplete today mission */
+let activeMission = null;
+function pickActiveMission() {
+    const list = getTodayMissions();
+    activeMission = list.find(m => !m.done) || null;
+    if (activeMission) {
+        missionBar.classList.remove('hidden');
+        updateMissionBarText();
+    } else {
+        missionBar.classList.add('hidden');
+    }
+}
+function updateMissionBarText() {
+    if (!activeMission) return;
+    let current = 0;
+    if (activeMission.type === 'coinsInRun') current = coinsThisRun;
+    else if (activeMission.type === 'scoreInRun') current = score;
+    else if (activeMission.type === 'surviveTime') current = Math.floor(elapsedTime);
+    current = Math.min(current, activeMission.target);
+    missionText.textContent = activeMission.text;
+    missionProgressFill.style.width = (current/activeMission.target*100) + '%';
+}
+function checkMissionComplete() {
+    if (!activeMission) return;
+    let current = 0;
+    if (activeMission.type === 'coinsInRun') current = coinsThisRun;
+    else if (activeMission.type === 'scoreInRun') current = score;
+    else if (activeMission.type === 'surviveTime') current = Math.floor(elapsedTime);
+    if (current >= activeMission.target) {
+        saveData.missionProgress[activeMission.id].done = true;
+        saveData.coins += activeMission.reward;
+        addXP(Math.round(activeMission.reward*0.6));
+        save();
+        playMissionDone();
+        missionBar.classList.add('hidden');
+        activeMission = null;
+        // try next mission
+        setTimeout(()=>{ pickActiveMission(); }, 50);
+    }
+}
 
 function resetGame() {
-    currentLaneIndex = 1;
-    targetX = LANES[1];
-    playerCar.position.x = LANES[1];
-    playerCar.position.z = 0;
-    traveledDistance = 0;
-    speed = MIN_SPEED;
-    score = 0;
+    currentLaneIndex = 1; targetX = LANES[1];
+    playerCar.position.x = LANES[1]; playerCar.position.z = 0;
+    traveledDistance = 0; speed = MIN_SPEED; score = 0; coinsThisRun = 0; elapsedTime = 0;
     invincibleTimer = 1.2;
-    traffic.forEach((c, i) => {
-        c.position.z = -30 - i * 18 - Math.random()*10;
-        c.userData.lane = LANES[Math.floor(Math.random()*3)];
-    });
+    traffic.forEach((c,i)=>{ c.position.z = -30-i*18-Math.random()*10; c.userData.lane = LANES[Math.floor(Math.random()*3)]; });
+    coinPickups.forEach((c,i)=>{ c.position.z = -20-i*22-Math.random()*15; c.userData.lane = LANES[Math.floor(Math.random()*3)]; c.userData.active = true; c.visible = true; });
+    applySelectedSkin();
+    pickActiveMission();
 }
 
 function startGame() {
@@ -330,7 +567,7 @@ function startGame() {
     hud.classList.remove('hidden');
     swipeHint.classList.remove('hidden');
     startEngineSound();
-    setTimeout(()=> swipeHint.classList.add('hidden'), 3500);
+    setTimeout(()=>swipeHint.classList.add('hidden'), 3500);
 }
 
 function endGame() {
@@ -339,52 +576,116 @@ function endGame() {
     stopEngineSound();
     hud.classList.add('hidden');
     swipeHint.classList.add('hidden');
-    if (score > best) { best = score; localStorage.setItem('rts_best', String(best)); }
+    missionBar.classList.add('hidden');
+    checkMissionComplete();
+    saveData.coins += coinsThisRun;
+    if (score > saveData.best) saveData.best = score;
+    addXP(Math.round(score*0.3) + coinsThisRun*2);
+    save();
     finalScoreEl.textContent = score;
-    bestScoreEl.textContent = 'Best: ' + best;
+    bestScoreEl.textContent = 'Best: ' + saveData.best;
+    coinEarnedRow.textContent = '+' + coinsThisRun + ' 🪙 collected';
     gameOverScreen.classList.remove('hidden');
-    // camera crash shake handled in animate via flag
     crashShake = 1;
+    refreshTitleStats();
 }
-let crashShake = 0;
 
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('retryBtn').addEventListener('click', startGame);
+document.getElementById('homeBtn').addEventListener('click', () => {
+    gameOverScreen.classList.add('hidden');
+    titleScreen.classList.remove('hidden');
+    refreshTitleStats();
+});
 
-/* ================= SWIPE CONTROLS ================= */
-let touchStartX = 0, touchStartY = 0, touchHandled = false;
+/* GARAGE UI */
+function renderGarage() {
+    document.getElementById('garageCoins').textContent = saveData.coins;
+    const grid = document.getElementById('garageGrid');
+    grid.innerHTML = '';
+    SKINS.forEach(skin => {
+        const owned = saveData.ownedSkins.includes(skin.id);
+        const selected = saveData.selectedSkin === skin.id;
+        const card = document.createElement('div');
+        card.className = 'skin-card' + (selected ? ' selected' : '') + (!owned ? ' locked' : '');
+        card.innerHTML = `
+            <div class="skin-swatch" style="background:#${skin.color.toString(16).padStart(6,'0')}"></div>
+            <div class="skin-name">${skin.name}</div>
+            <div class="skin-price">${owned ? (selected ? 'SELECTED' : 'TAP TO USE') : '🪙 ' + skin.price}</div>
+        `;
+        card.onclick = () => {
+            if (owned) {
+                saveData.selectedSkin = skin.id;
+                save(); applySelectedSkin(); renderGarage();
+            } else if (saveData.coins >= skin.price) {
+                saveData.coins -= skin.price;
+                saveData.ownedSkins.push(skin.id);
+                saveData.selectedSkin = skin.id;
+                save(); applySelectedSkin(); renderGarage(); refreshTitleStats();
+            } else {
+                playBeep(180, 0.15, 'square', 0.1);
+            }
+        };
+        grid.appendChild(card);
+    });
+}
+document.getElementById('garageBtn').addEventListener('click', () => {
+    titleScreen.classList.add('hidden');
+    garageScreen.classList.remove('hidden');
+    renderGarage();
+});
+document.getElementById('garageBackBtn').addEventListener('click', () => {
+    garageScreen.classList.add('hidden');
+    titleScreen.classList.remove('hidden');
+});
+
+/* MISSIONS UI */
+function renderMissions() {
+    const list = document.getElementById('missionsList');
+    list.innerHTML = '';
+    getTodayMissions().forEach(m => {
+        const card = document.createElement('div');
+        card.className = 'mission-card' + (m.done ? ' done' : ' active');
+        const pct = m.done ? 100 : 0;
+        card.innerHTML = `
+            <div class="mtitle"><span>${m.done ? '✅ ' : '🎯 '}${m.text}</span><span>+${m.reward}🪙</span></div>
+            <div class="mbar-track"><div class="mbar-fill" style="width:${pct}%"></div></div>
+        `;
+        list.appendChild(card);
+    });
+}
+document.getElementById('missionsBtn').addEventListener('click', () => {
+    titleScreen.classList.add('hidden');
+    missionsScreen.classList.remove('hidden');
+    renderMissions();
+});
+document.getElementById('missionsBackBtn').addEventListener('click', () => {
+    missionsScreen.classList.add('hidden');
+    titleScreen.classList.remove('hidden');
+});
+
+/* SWIPE CONTROLS */
+let touchStartX=0, touchStartY=0, touchHandled=false;
 canvas.addEventListener('touchstart', e => {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-    touchHandled = false;
+    touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; touchHandled = false;
 }, {passive:true});
 canvas.addEventListener('touchmove', e => {
     if (gameState !== 'playing' || touchHandled) return;
     const dx = e.touches[0].clientX - touchStartX;
     const dy = e.touches[0].clientY - touchStartY;
-    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
-        touchHandled = true;
-        changeLane(dx > 0 ? 1 : -1);
-    }
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) { touchHandled = true; changeLane(dx>0?1:-1); }
 }, {passive:true});
-
-// Desktop fallback: arrow keys
 window.addEventListener('keydown', e => {
     if (gameState !== 'playing') return;
     if (e.key === 'ArrowLeft') changeLane(-1);
     if (e.key === 'ArrowRight') changeLane(1);
 });
-
 function changeLane(dir) {
-    const newIndex = Math.max(0, Math.min(2, currentLaneIndex + dir));
-    if (newIndex !== currentLaneIndex) {
-        currentLaneIndex = newIndex;
-        targetX = LANES[currentLaneIndex];
-        playSwipe();
-    }
+    const newIndex = Math.max(0, Math.min(2, currentLaneIndex+dir));
+    if (newIndex !== currentLaneIndex) { currentLaneIndex = newIndex; targetX = LANES[currentLaneIndex]; playSwipe(); }
 }
 
-/* ================= MAIN LOOP ================= */
+/* COLLISION & COIN PICKUP */
 function checkCollision() {
     for (const car of traffic) {
         const dz = Math.abs(car.position.z - playerCar.position.z);
@@ -393,76 +694,90 @@ function checkCollision() {
     }
     return false;
 }
+function checkCoinPickup() {
+    for (const coin of coinPickups) {
+        if (!coin.userData.active) continue;
+        const dz = Math.abs(coin.position.z - playerCar.position.z);
+        const dx = Math.abs(coin.position.x - playerCar.position.x);
+        if (dz < 1.6 && dx < 1.3) {
+            coin.userData.active = false;
+            coin.visible = false;
+            coinsThisRun += 1;
+            coinHudVal.textContent = coinsThisRun;
+            playCoin();
+            checkMissionComplete();
+        }
+    }
+}
 
 let scoreAccumulator = 0;
 
 function animate() {
     requestAnimationFrame(animate);
     const now = performance.now();
-    let dt = (now - lastTime) / 1000;
-    dt = Math.min(dt, 0.05);
-    lastTime = now;
+    let dt = (now - lastTime)/1000; dt = Math.min(dt, 0.05); lastTime = now;
 
-    // wheel spin visual for player always
     playerCar.userData.wheels.forEach(w => w.rotation.x += 0.4);
+    coinPickups.forEach(c => { if (c.userData.active) c.rotation.z += 0.06; });
 
     if (gameState === 'playing') {
         if (invincibleTimer > 0) invincibleTimer -= dt;
+        elapsedTime += dt;
 
-        // speed scales with distance traveled
-        const speedRatio = Math.min(traveledDistance / 1400, 1);
-        speed = MIN_SPEED + speedRatio * (MAX_SPEED - MIN_SPEED);
+        const speedRatio = Math.min(traveledDistance/1400, 1);
+        speed = MIN_SPEED + speedRatio*(MAX_SPEED-MIN_SPEED);
         updateEnginePitch(speedRatio);
 
-        const moveAmount = speed * dt * 60;
+        const moveAmount = speed*dt*60;
         traveledDistance += moveAmount;
         playerCar.position.z -= moveAmount;
 
-        // smooth lane change
-        playerCar.position.x += (targetX - playerCar.position.x) * Math.min(dt*9, 1);
+        playerCar.position.x += (targetX - playerCar.position.x) * Math.min(dt*9,1);
         playerCar.rotation.z = (targetX - playerCar.position.x) * -0.15;
 
-        // camera follows
-        const camTargetX = playerCar.position.x * 0.5;
-        camera.position.x += (camTargetX - camera.position.x) * 0.08;
+        const camTargetX = playerCar.position.x*0.5;
+        camera.position.x += (camTargetX - camera.position.x)*0.08;
         camera.position.y = 4.2;
         camera.position.z = playerCar.position.z + 7.5;
-        camera.lookAt(playerCar.position.x*0.3, 0.6, playerCar.position.z - 8);
+        camera.lookAt(playerCar.position.x*0.3, 0.6, playerCar.position.z-8);
 
-        // scenery follow (loop tiling not needed since road/ground huge, but recenter far ahead optional)
-
-        // traffic movement & recycle
         traffic.forEach(car => {
-            car.position.z += (speed*0.55) * dt * 60; // relative approach since they're slower than player overall except occasional
-            car.userData.wheels && car.userData.wheels.forEach(w => w.rotation.x += 0.25);
+            car.position.z += (speed*0.55)*dt*60;
+            car.userData.wheels.forEach(w => w.rotation.x += 0.25);
             if (car.position.z > playerCar.position.z + 12) {
-                // recycle ahead
                 car.position.z = playerCar.position.z - (140 + Math.random()*120);
                 car.userData.lane = LANES[Math.floor(Math.random()*3)];
             }
-        });
-        // smooth traffic lane positions
-        traffic.forEach(car => {
-            car.position.x += (car.userData.lane - car.position.x) * Math.min(dt*3, 1);
+            car.position.x += (car.userData.lane - car.position.x) * Math.min(dt*3,1);
         });
 
-        // score
+        coinPickups.forEach(coin => {
+            if (coin.position.z > playerCar.position.z + 12) {
+                coin.position.z = playerCar.position.z - (100 + Math.random()*160);
+                coin.userData.lane = LANES[Math.floor(Math.random()*3)];
+                coin.position.x = coin.userData.lane;
+                coin.userData.active = true;
+                coin.visible = true;
+            }
+        });
+
         scoreAccumulator += moveAmount;
         if (scoreAccumulator >= 5) {
-            const ticks = Math.floor(scoreAccumulator / 5);
-            score += ticks * 1;
-            scoreAccumulator -= ticks*5;
+            const ticks = Math.floor(scoreAccumulator/5);
+            score += ticks; scoreAccumulator -= ticks*5;
         }
-        speedValEl.textContent = Math.round(40 + speedRatio*160);
+        speedValEl.textContent = Math.round(40+speedRatio*160);
         scoreValEl.textContent = score;
+        coinHudVal.textContent = coinsThisRun;
+        updateMissionBarText();
+        checkMissionComplete();
 
-        if (invincibleTimer <= 0 && checkCollision()) {
-            endGame();
-        }
+        checkCoinPickup();
+
+        if (invincibleTimer <= 0 && checkCollision()) endGame();
     } else if (gameState === 'gameover') {
         if (crashShake > 0) {
             camera.position.x += (Math.random()-0.5)*crashShake*0.5;
-            camera.position.y += (Math.random()-0.5)*crashShake*0.3 + 4.2*(1-crashShake)*0 ;
             crashShake -= dt*1.5;
         }
     }
@@ -470,10 +785,12 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// initial camera position for title screen
-camera.position.set(0, 4.2, 7.5);
-camera.lookAt(0, 0.6, -8);
+camera.position.set(0,4.2,7.5);
+camera.lookAt(0,0.6,-8);
 
+refreshTitleStats();
+applySelectedSkin();
+checkDailyReward();
 animate();
 </script>
 </body>
