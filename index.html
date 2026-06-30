@@ -1,60 +1,480 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <style>
-        body { margin: 0; overflow: hidden; background: #000; }
-        #hud { position: absolute; top: 20px; width: 100%; text-align: center; color: yellow; font-family: sans-serif; font-size: 30px; text-shadow: 2px 2px #000; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Race To Survive</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a0a; touch-action: none; }
+    #gameCanvas { display: block; width: 100%; height: 100%; }
+
+    #hud {
+        position: absolute; top: 0; left: 0; width: 100%;
+        display: flex; justify-content: space-between; padding: 16px 20px;
+        font-family: 'Segoe UI', Arial, sans-serif; color: #fff; pointer-events: none;
+        z-index: 10;
+    }
+    .hud-box {
+        background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 10px; padding: 8px 14px; backdrop-filter: blur(4px);
+    }
+    .hud-label { font-size: 11px; opacity: 0.7; letter-spacing: 1px; }
+    .hud-value { font-size: 22px; font-weight: 700; }
+    #speedVal { color: #ffcc00; }
+    #scoreVal { color: #00e5ff; }
+
+    #titleScreen, #gameOverScreen {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(180deg, rgba(10,10,15,0.95), rgba(5,5,10,0.98));
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        font-family: 'Segoe UI', Arial, sans-serif; color: #fff; z-index: 20; text-align: center;
+        padding: 20px;
+    }
+    #titleScreen h1, #gameOverScreen h1 {
+        font-size: 38px; letter-spacing: 2px; margin-bottom: 6px;
+        color: #ffcc00; text-shadow: 0 0 18px rgba(255,204,0,0.5);
+    }
+    #titleScreen p, #gameOverScreen p { opacity: 0.7; margin-bottom: 24px; font-size: 14px; }
+    .btn {
+        background: linear-gradient(135deg, #ff3b30, #d4001f);
+        color: #fff; border: none; padding: 16px 46px; border-radius: 30px;
+        font-size: 18px; font-weight: 700; letter-spacing: 1px;
+        box-shadow: 0 6px 20px rgba(255,59,48,0.4); cursor: pointer;
+    }
+    .btn:active { transform: scale(0.96); }
+    #finalScore { font-size: 50px; font-weight: 800; color: #00e5ff; margin: 10px 0; }
+    #bestScore { font-size: 14px; opacity: 0.6; margin-bottom: 26px; }
+    .hidden { display: none !important; }
+
+    #swipeHint {
+        position: absolute; bottom: 40px; width: 100%; text-align: center;
+        color: rgba(255,255,255,0.5); font-family: sans-serif; font-size: 13px;
+        z-index: 10; pointer-events: none; letter-spacing: 1px;
+    }
+</style>
 </head>
 <body>
-    <div id="hud">RACE TO SURVIVE</div>
-    <script type="importmap">
-        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
-    </script>
-    <script type="module">
-        import * as THREE from 'three';
 
-        // 1. Scene setup with Fog (Fog se game real lagti hai)
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x222222);
-        scene.fog = new THREE.Fog(0x222222, 1, 50);
+<canvas id="gameCanvas"></canvas>
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+<div id="hud" class="hidden">
+    <div class="hud-box"><div class="hud-label">SPEED</div><div class="hud-value"><span id="speedVal">0</span> km/h</div></div>
+    <div class="hud-box"><div class="hud-label">SCORE</div><div class="hud-value" id="scoreVal">0</div></div>
+</div>
 
-        // 2. Lighting (Atmosphere)
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-        const pointLight = new THREE.PointLight(0xffffff, 1);
-        pointLight.position.set(0, 5, 0);
-        scene.add(pointLight);
+<div id="swipeHint" class="hidden">← swipe to change lane →</div>
 
-        // 3. Road (Detailed)
-        const road = new THREE.Mesh(new THREE.PlaneGeometry(10, 1000), new THREE.MeshBasicMaterial({ color: 0x333333 }));
-        road.rotation.x = -Math.PI/2;
-        scene.add(road);
+<div id="titleScreen">
+    <h1>RACE TO SURVIVE</h1>
+    <p>Dodge traffic. Survive the highway. Don't crash.</p>
+    <button class="btn" id="startBtn">START RACE</button>
+</div>
 
-        // 4. Car (Basic Geometry)
-        const car = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 2), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-        car.position.y = 0.5;
-        scene.add(car);
+<div id="gameOverScreen" class="hidden">
+    <h1>CRASHED!</h1>
+    <div id="finalScore">0</div>
+    <div id="bestScore">Best: 0</div>
+    <button class="btn" id="retryBtn">RACE AGAIN</button>
+</div>
 
-        // 5. Game Loop
-        let pos = 0;
-        function animate() {
-            requestAnimationFrame(animate);
-            
-            // Motion (Vibe)
-            pos += 0.2;
-            car.position.z = -pos;
-            camera.position.z = -pos + 5;
-            camera.position.y = 3;
-            camera.lookAt(0, 0, -pos - 5);
-            
-            renderer.render(scene, camera);
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ================= AUDIO ================= */
+let audioCtx = null;
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+let engineOsc = null, engineGain = null;
+function startEngineSound() {
+    if (!audioCtx) return;
+    engineOsc = audioCtx.createOscillator();
+    engineGain = audioCtx.createGain();
+    engineOsc.type = 'sawtooth';
+    engineOsc.frequency.value = 60;
+    engineGain.gain.value = 0.025;
+    engineOsc.connect(engineGain).connect(audioCtx.destination);
+    engineOsc.start();
+}
+function stopEngineSound() {
+    if (engineOsc) { try { engineOsc.stop(); } catch(e){} engineOsc = null; }
+}
+function updateEnginePitch(speedRatio) {
+    if (engineOsc) engineOsc.frequency.value = 55 + speedRatio * 140;
+}
+function playBeep(freq, duration, type='sine', vol=0.15) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.value = vol;
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + duration);
+}
+function playCrash() {
+    if (!audioCtx) return;
+    const bufferSize = audioCtx.sampleRate * 0.4;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random()*2-1) * (1 - i/bufferSize);
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.5;
+    noise.connect(gain).connect(audioCtx.destination);
+    noise.start();
+}
+function playSwipe() { playBeep(400, 0.08, 'triangle', 0.08); }
+function playScoreTick() { playBeep(880, 0.06, 'sine', 0.05); }
+
+/* ================= SCENE ================= */
+const canvas = document.getElementById('gameCanvas');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87a8c4);
+scene.fog = new THREE.Fog(0x87a8c4, 20, 110);
+
+const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* Lighting */
+const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 0.9);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+sun.position.set(20, 40, -10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.left = -30; sun.shadow.camera.right = 30;
+sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30;
+scene.add(sun);
+
+/* ================= ROAD ================= */
+const LANES = [-3.2, 0, 3.2];
+const ROAD_WIDTH = 11;
+const ROAD_LENGTH = 4000;
+
+const roadMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3e, roughness: 0.9 });
+const road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH, ROAD_LENGTH), roadMat);
+road.rotation.x = -Math.PI/2;
+road.position.z = -ROAD_LENGTH/2 + 20;
+road.receiveShadow = true;
+scene.add(road);
+
+// Side grass/ground
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x355c2e, roughness: 1 });
+const groundL = new THREE.Mesh(new THREE.PlaneGeometry(40, ROAD_LENGTH), groundMat);
+groundL.rotation.x = -Math.PI/2;
+groundL.position.set(-ROAD_WIDTH/2 - 20, -0.01, -ROAD_LENGTH/2 + 20);
+groundL.receiveShadow = true;
+scene.add(groundL);
+const groundR = groundL.clone();
+groundR.position.x = ROAD_WIDTH/2 + 20;
+scene.add(groundR);
+
+// Lane dashed markings
+const dashMat = new THREE.MeshBasicMaterial({ color: 0xf2c200 });
+const dashGroup = new THREE.Group();
+const dashCount = 220;
+for (let i = 0; i < dashCount; i++) {
+    [-1.6, 1.6].forEach(x => {
+        const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 1.4), dashMat);
+        dash.rotation.x = -Math.PI/2;
+        dash.position.set(x, 0.01, -i * 6);
+        dashGroup.add(dash);
+    });
+}
+scene.add(dashGroup);
+
+// Road edge lines
+[-ROAD_WIDTH/2 + 0.15, ROAD_WIDTH/2 - 0.15].forEach(x => {
+    const edge = new THREE.Mesh(new THREE.PlaneGeometry(0.18, ROAD_LENGTH), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    edge.rotation.x = -Math.PI/2;
+    edge.position.set(x, 0.015, -ROAD_LENGTH/2 + 20);
+    scene.add(edge);
+});
+
+// Roadside poles/trees for speed sensation
+const poleGroup = new THREE.Group();
+function makeTree(z, side) {
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 1.6, 6), new THREE.MeshStandardMaterial({ color: 0x5c4327 }));
+    trunk.position.y = 0.8;
+    const leaves = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2.4, 7), new THREE.MeshStandardMaterial({ color: 0x2d5d34 }));
+    leaves.position.y = 2.4;
+    g.add(trunk, leaves);
+    g.position.set(side * (ROAD_WIDTH/2 + 3 + Math.random()*4), 0, z);
+    g.castShadow = true;
+    return g;
+}
+for (let i = 0; i < 140; i++) {
+    poleGroup.add(makeTree(-i * 9 - 5, 1));
+    poleGroup.add(makeTree(-i * 9 - 5 - 4, -1));
+}
+scene.add(poleGroup);
+
+/* ================= PLAYER CAR ================= */
+function buildCar(bodyColor, scale=1) {
+    const g = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, metalness: 0.4, roughness: 0.35 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.55, 3.6), bodyMat);
+    body.position.y = 0.55;
+    body.castShadow = true;
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.5, 1.7), new THREE.MeshStandardMaterial({ color: 0x111318, metalness: 0.2, roughness: 0.3 }));
+    cabin.position.set(0, 0.95, -0.1);
+    cabin.castShadow = true;
+    const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.32, 14);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x121212 });
+    const wheelPositions = [[-0.85, 0.34, 1.2],[0.85, 0.34, 1.2],[-0.85, 0.34, -1.2],[0.85, 0.34, -1.2]];
+    const wheels = [];
+    wheelPositions.forEach(p => {
+        const w = new THREE.Mesh(wheelGeo, wheelMat);
+        w.rotation.z = Math.PI/2;
+        w.position.set(...p);
+        w.castShadow = true;
+        g.add(w);
+        wheels.push(w);
+    });
+    const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff7cc, emissive: 0xfff7cc, emissiveIntensity: 0.6 });
+    const headL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.18, 0.05), lightMat);
+    headL.position.set(-0.55, 0.6, 1.82);
+    const headR = headL.clone(); headR.position.x = 0.55;
+    const tailMat = new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xff0000, emissiveIntensity: 0.5 });
+    const tailL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.18, 0.05), tailMat);
+    tailL.position.set(-0.55, 0.6, -1.82);
+    const tailR = tailL.clone(); tailR.position.x = 0.55;
+    g.add(body, cabin, headL, headR, tailL, tailR);
+    g.scale.setScalar(scale);
+    g.userData.wheels = wheels;
+    return g;
+}
+
+const playerCar = buildCar(0xe8231a);
+playerCar.position.set(0, 0, 0);
+scene.add(playerCar);
+
+/* ================= TRAFFIC ================= */
+const carColors = [0x2266dd, 0xffffff, 0xffcc00, 0x22aa55, 0x555560, 0xff8800, 0x9933cc];
+let traffic = [];
+const TRAFFIC_POOL_SIZE = 14;
+function spawnTrafficPiece(zPos) {
+    const lane = LANES[Math.floor(Math.random()*3)];
+    const color = carColors[Math.floor(Math.random()*carColors.length)];
+    const car = buildCar(color, 0.95);
+    car.position.set(lane, 0, zPos);
+    car.userData.lane = lane;
+    car.userData.speed = 0.05 + Math.random()*0.05; // own forward drift (slower than player typically)
+    scene.add(car);
+    traffic.push(car);
+}
+for (let i = 0; i < TRAFFIC_POOL_SIZE; i++) {
+    spawnTrafficPiece(-30 - i * 18 - Math.random()*10);
+}
+
+/* ================= GAME STATE ================= */
+let gameState = 'title'; // title, playing, gameover
+let currentLaneIndex = 1;
+let targetX = LANES[1];
+let traveledDistance = 0;
+let speed = 0;
+const MAX_SPEED = 0.95;
+const MIN_SPEED = 0.32;
+let score = 0;
+let best = parseInt(localStorage.getItem('rts_best') || '0', 10);
+let lastTime = performance.now();
+let invincibleTimer = 0;
+
+const speedValEl = document.getElementById('speedVal');
+const scoreValEl = document.getElementById('scoreVal');
+const hud = document.getElementById('hud');
+const swipeHint = document.getElementById('swipeHint');
+const titleScreen = document.getElementById('titleScreen');
+const gameOverScreen = document.getElementById('gameOverScreen');
+const finalScoreEl = document.getElementById('finalScore');
+const bestScoreEl = document.getElementById('bestScore');
+
+function resetGame() {
+    currentLaneIndex = 1;
+    targetX = LANES[1];
+    playerCar.position.x = LANES[1];
+    playerCar.position.z = 0;
+    traveledDistance = 0;
+    speed = MIN_SPEED;
+    score = 0;
+    invincibleTimer = 1.2;
+    traffic.forEach((c, i) => {
+        c.position.z = -30 - i * 18 - Math.random()*10;
+        c.userData.lane = LANES[Math.floor(Math.random()*3)];
+    });
+}
+
+function startGame() {
+    initAudio();
+    resetGame();
+    gameState = 'playing';
+    titleScreen.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    hud.classList.remove('hidden');
+    swipeHint.classList.remove('hidden');
+    startEngineSound();
+    setTimeout(()=> swipeHint.classList.add('hidden'), 3500);
+}
+
+function endGame() {
+    gameState = 'gameover';
+    playCrash();
+    stopEngineSound();
+    hud.classList.add('hidden');
+    swipeHint.classList.add('hidden');
+    if (score > best) { best = score; localStorage.setItem('rts_best', String(best)); }
+    finalScoreEl.textContent = score;
+    bestScoreEl.textContent = 'Best: ' + best;
+    gameOverScreen.classList.remove('hidden');
+    // camera crash shake handled in animate via flag
+    crashShake = 1;
+}
+let crashShake = 0;
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('retryBtn').addEventListener('click', startGame);
+
+/* ================= SWIPE CONTROLS ================= */
+let touchStartX = 0, touchStartY = 0, touchHandled = false;
+canvas.addEventListener('touchstart', e => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchHandled = false;
+}, {passive:true});
+canvas.addEventListener('touchmove', e => {
+    if (gameState !== 'playing' || touchHandled) return;
+    const dx = e.touches[0].clientX - touchStartX;
+    const dy = e.touches[0].clientY - touchStartY;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+        touchHandled = true;
+        changeLane(dx > 0 ? 1 : -1);
+    }
+}, {passive:true});
+
+// Desktop fallback: arrow keys
+window.addEventListener('keydown', e => {
+    if (gameState !== 'playing') return;
+    if (e.key === 'ArrowLeft') changeLane(-1);
+    if (e.key === 'ArrowRight') changeLane(1);
+});
+
+function changeLane(dir) {
+    const newIndex = Math.max(0, Math.min(2, currentLaneIndex + dir));
+    if (newIndex !== currentLaneIndex) {
+        currentLaneIndex = newIndex;
+        targetX = LANES[currentLaneIndex];
+        playSwipe();
+    }
+}
+
+/* ================= MAIN LOOP ================= */
+function checkCollision() {
+    for (const car of traffic) {
+        const dz = Math.abs(car.position.z - playerCar.position.z);
+        const dx = Math.abs(car.position.x - playerCar.position.x);
+        if (dz < 2.6 && dx < 1.5) return true;
+    }
+    return false;
+}
+
+let scoreAccumulator = 0;
+
+function animate() {
+    requestAnimationFrame(animate);
+    const now = performance.now();
+    let dt = (now - lastTime) / 1000;
+    dt = Math.min(dt, 0.05);
+    lastTime = now;
+
+    // wheel spin visual for player always
+    playerCar.userData.wheels.forEach(w => w.rotation.x += 0.4);
+
+    if (gameState === 'playing') {
+        if (invincibleTimer > 0) invincibleTimer -= dt;
+
+        // speed scales with distance traveled
+        const speedRatio = Math.min(traveledDistance / 1400, 1);
+        speed = MIN_SPEED + speedRatio * (MAX_SPEED - MIN_SPEED);
+        updateEnginePitch(speedRatio);
+
+        const moveAmount = speed * dt * 60;
+        traveledDistance += moveAmount;
+        playerCar.position.z -= moveAmount;
+
+        // smooth lane change
+        playerCar.position.x += (targetX - playerCar.position.x) * Math.min(dt*9, 1);
+        playerCar.rotation.z = (targetX - playerCar.position.x) * -0.15;
+
+        // camera follows
+        const camTargetX = playerCar.position.x * 0.5;
+        camera.position.x += (camTargetX - camera.position.x) * 0.08;
+        camera.position.y = 4.2;
+        camera.position.z = playerCar.position.z + 7.5;
+        camera.lookAt(playerCar.position.x*0.3, 0.6, playerCar.position.z - 8);
+
+        // scenery follow (loop tiling not needed since road/ground huge, but recenter far ahead optional)
+
+        // traffic movement & recycle
+        traffic.forEach(car => {
+            car.position.z += (speed*0.55) * dt * 60; // relative approach since they're slower than player overall except occasional
+            car.userData.wheels && car.userData.wheels.forEach(w => w.rotation.x += 0.25);
+            if (car.position.z > playerCar.position.z + 12) {
+                // recycle ahead
+                car.position.z = playerCar.position.z - (140 + Math.random()*120);
+                car.userData.lane = LANES[Math.floor(Math.random()*3)];
+            }
+        });
+        // smooth traffic lane positions
+        traffic.forEach(car => {
+            car.position.x += (car.userData.lane - car.position.x) * Math.min(dt*3, 1);
+        });
+
+        // score
+        scoreAccumulator += moveAmount;
+        if (scoreAccumulator >= 5) {
+            const ticks = Math.floor(scoreAccumulator / 5);
+            score += ticks * 1;
+            scoreAccumulator -= ticks*5;
         }
-        animate();
-    </script>
+        speedValEl.textContent = Math.round(40 + speedRatio*160);
+        scoreValEl.textContent = score;
+
+        if (invincibleTimer <= 0 && checkCollision()) {
+            endGame();
+        }
+    } else if (gameState === 'gameover') {
+        if (crashShake > 0) {
+            camera.position.x += (Math.random()-0.5)*crashShake*0.5;
+            camera.position.y += (Math.random()-0.5)*crashShake*0.3 + 4.2*(1-crashShake)*0 ;
+            crashShake -= dt*1.5;
+        }
+    }
+
+    renderer.render(scene, camera);
+}
+
+// initial camera position for title screen
+camera.position.set(0, 4.2, 7.5);
+camera.lookAt(0, 0.6, -8);
+
+animate();
+</script>
 </body>
 </html>
